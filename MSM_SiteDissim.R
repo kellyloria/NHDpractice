@@ -1,5 +1,5 @@
 ## ---------------------------
-## Exploring site dissimilarity based on watershed characterisitics 
+## Exploring site dissimilarity based on watershed characteristics 
 ## Author: Kelly A. Loria
 ## Date Created: 2021-01-07
 ## Email: kelly.loria@colorado.edu

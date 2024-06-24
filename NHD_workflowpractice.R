@@ -19,6 +19,7 @@ library(ggplot2)
 library(scales)
 library(tidyverse)
 #library(zoo)
+library(nhdplusTools)
 
 ## ---------------------------
 # Source Data from Water Quality Portal
@@ -41,7 +42,7 @@ qwData1$huc_cd <- Info$huc_cd
 qwData1$drain_area_va <- Info$drain_area_va
 qwData1$project_no <- Info$project_no
 qwData1$station_nm <- Info$station_nm
-qwData1$alt_va <- Info$alt_va
+qwData1$state_cd <-Info$state_cd
 
 names(Info)
 
@@ -390,6 +391,8 @@ head(stream_dat)
 
 ## ---------------------------
 # Water quality data availability 
+#https://nwis.waterdata.usgs.gov/usa/nwis/pmcodes
+
 # \donttest{
 siteIDs <-c('10308789','10308794', '10310400', '10310500', '10311100',
             '10311200', '10336645', '10336660', '10336676', '10336700',
@@ -665,7 +668,11 @@ NHD <- select(stream_dat, c("site_no", "dec_long_va", "dec_lat_va", "huc_cd", "s
 # colnames(NHD)[5] <- "STATE_CD"
 # colnames(NHD)[6] <- "DA_SQ_MILE"
 
+?discover_nhdplus_id()
 
+## ---------------------------
+## Get ComID from lat long or USGS site id
+# 
 
 ###
 point <- sf::st_sfc(sf::st_point(c(-119.6601726, 38.7168505)), crs = 4326)
@@ -722,20 +729,41 @@ discover_nhdplus_id(nldi_feature = nldi_nwis)
 nldi_nwis <- list(featureSource = "nwissite", featureID = "USGS-11404240")
 discover_nhdplus_id(nldi_feature = nldi_nwis)
 
+# 2021-02-18
+nldi_nwis <- list(featureSource = "nwissite", featureID = "USGS-10336730")
+discover_nhdplus_id(nldi_feature = nldi_nwis)
+
+nldi_nwis <- list(featureSource = "nwissite", featureID = "USGS-10336765")
+discover_nhdplus_id(nldi_feature = nldi_nwis)
+
+nldi_nwis <- list(featureSource = "nwissite", featureID = "USGS-10311100")
+discover_nhdplus_id(nldi_feature = nldi_nwis)
+
+
+#10336730
+
 ?discover_nhdplus_id
 
 ## Bring in time series data from the project so we know what sites we need to assign ComID's to
-dat <- read.csv(paste0(inputDir,"/StreamGauges_MSM.csv"))
-## Separate USGS and WQP data because we will process them differently
-USGS <- subset(dat, dat$Source == "USGS")
-#WQP <- subset(dat, dat$Source == "WQP")
+dat <- read.csv("~/Documents/UNR_2020/Fall2020Projects/NHD_Tools/StreamGauges_MSM.csv")
+
+Info <- readNWISsite(dat$Site)
+# 10336660 BLACKWOOD C NR TAHOE CITY
+# 10336676 WARD C AT HWY 89 NR TAHOE PINES
+# 10343500 SAGEHEN C NR TRUCKEE
+# 10336645 GENERAL C NR MEEKS BAY
+# 10348460 FRANKTOWN CK NR CARSON CITY
+# 10336730 GLENBROOK CK AT GLENBROOK
+# 10336700 INCLINE CK NR CRYSTAL BAY
+# 10310500 CLEAR CK NR CARSON CITY
+# 10311100 KINGS CYN CK NR CARSON CITY
 
 
 # Bring in the NHD Attribute Data 
 # downloaded at https://www.sciencebase.gov/catalog/item/5669a79ee4b08895842a1d47
 # National Land Cover Database (2016)  https://www.sciencebase.gov/catalog/item/5d66b3b6e4b0c4f70cefb11d
 # reach catchments accumulated upstream proportional land cover through the river network
-nlcd_acc <- read.csv(paste0(inputDir,"/NLCD16_ACC_CONUS.txt"))
+nlcd_acc <- read.csv("/Users/kellyloria/Documents/UNR_2020/Fall2020Projects/NHD_Tools/NHD_AttributeFiles/NLCD16_ACC_CONUS.TXT")
  
 # Subset NLCD by our sites of interest
 nlcd_acc <- subset(nlcd_acc, nlcd_acc$COMID %in% dat$COMID) # the number of rows should be = to the number of rows in usgs_comid
@@ -758,7 +786,7 @@ summary(usgs_nlcd)
 
 ### https://www.sciencebase.gov/catalog/item/5703e35be4b0328dcb825562
 # reach catchments accumulated upstream proportional Olson Geology Types attributes through the river network
-nlcd_geoOGT <- read.csv(paste0(inputDir,"/OLSON_CAT_CONUS.TXT"))
+nlcd_geoOGT <- read.csv(paste0(inputDir,"OLSON_CAT_CONUS.TXT"))
 
 # Subset NLCD by our sites of interest
 nlcd_geoOGT1 <- subset(nlcd_geoOGT, nlcd_geoOGT$COMID %in% dat$COMID) # the number of rows should be = to the number of rows in usgs_comid
@@ -771,7 +799,7 @@ nlcd_geoOGT1 <- subset(nlcd_geoOGT, nlcd_geoOGT$COMID %in% dat$COMID) # the numb
 
 ### https://www.sciencebase.gov/catalog/item/5703f6b5e4b0328dcb826d06
 # reach catchments accumulated upstream proportional Generalized Geology Type attributes through the river network
-nlcd_geoGGT <- read.csv(paste0(inputDir,"/BUSHREED_ACC_CONUS.txt"))
+nlcd_geoGGT <- read.csv("/Users/kellyloria/Documents/UNR_2020/Fall2020Projects/NHD_Tools/NHD_AttributeFiles/BUSHREED_ACC_CONUS.txt")
 
 # Subset NLCD by our sites of interest
 nlcd_geoGGT1 <- subset(nlcd_geoGGT, nlcd_geoGGT$COMID %in% dat$COMID) # the number of rows should be = to the number of rows in usgs_comid
@@ -784,9 +812,9 @@ nlcd_geoGGT1 <- subset(nlcd_geoGGT, nlcd_geoGGT$COMID %in% dat$COMID) # the numb
 
 # Change column names:
 names(nlcd_geoGGT1)
-# colnames(nlcd_geoGGT1)[3] <- "GGT_granitic"
-# colnames(nlcd_geoGGT1)[6] <- "GGT_sedimentary"
-# colnames(nlcd_geoGGT1)[7] <- "GGT_volcanic"
+colnames(nlcd_geoGGT1)[3] <- "GGT_granitic"
+colnames(nlcd_geoGGT1)[6] <- "GGT_sedimentary"
+colnames(nlcd_geoGGT1)[7] <- "GGT_volcanic"
 
 
 usgs_nlcd1 <- left_join(usgs_nlcd, nlcd_geoGGT1[c("COMID", "GGT_granitic", "GGT_sedimentary",
@@ -797,7 +825,7 @@ summary(usgs_nlcd1)
 
 ### https://www.sciencebase.gov/catalog/item/57bf5c07e4b0f2f0ceb75b1b
 # reach catchments accumulated upstream 2015 precip attributes through the river network
-nlcd_precip <- read.csv(paste0(inputDir,"/PPT2015_ANN_CONUS.txt"))
+nlcd_precip <- read.csv("/Users/kellyloria/Documents/UNR_2020/Fall2020Projects/NHD_Tools/NHD_AttributeFiles/PPT2015_ANN_CONUS.txt")
 
 # Subset NLCD by our sites of interest
 nlcd_precip1 <- subset(nlcd_precip, nlcd_precip$COMID %in% dat$COMID) # the number of rows should be = to the number of rows in usgs_comid
@@ -809,8 +837,8 @@ nlcd_precip1 <- subset(nlcd_precip, nlcd_precip$COMID %in% dat$COMID) # the numb
 
 # Change column names:
 names(nlcd_precip1)
-# colnames(nlcd_precip1)[2] <- "AveAnnPrecip_mm"
-# colnames(nlcd_precip1)[4] <- "TotAnnPrecip_mm"
+colnames(nlcd_precip1)[2] <- "AveAnnPrecip_mm"
+colnames(nlcd_precip1)[4] <- "TotAnnPrecip_mm"
 
 usgs_nlcd2 <- left_join(usgs_nlcd1, nlcd_precip1[c("COMID", "AveAnnPrecip_mm", "TotAnnPrecip_mm")],
                         by = c('COMID'= 'COMID'))
@@ -819,7 +847,7 @@ summary(usgs_nlcd2)
 
 ### https://www.sciencebase.gov/catalog/item/5703f6b5e4b0328dcb826d06
 # reach catchments accumulated upstream proportional elevation through the river network
-nlcd_basin <- read.csv(paste0(inputDir,"/BASIN_CHAR_CAT_CONUS.TXT"))
+nlcd_basin <- read.csv("/Users/kellyloria/Documents/UNR_2020/Fall2020Projects/NHD_Tools/NHD_AttributeFiles/BASIN_CHAR_CAT_CONUS.TXT")
 
 # Subset NLCD by our sites of interest
 nlcd_basin1 <- subset(nlcd_basin, nlcd_basin$COMID %in% dat$COMID) # the number of rows should be = to the number of rows in usgs_comid
@@ -843,7 +871,7 @@ summary(usgs_nlcd3)
 
 ### https://www.sciencebase.gov/catalog/item/57867c33e4b0e02680c14fff
 # reach catchments accumulated upstream proportional geologic attributes through the river network
-nlcd_geo <- read.csv(paste0(inputDir,"/BEDPERM_ACC_CONUS.TXT"))
+nlcd_geo <- read.csv("/Users/kellyloria/Documents/UNR_2020/Fall2020Projects/NHD_Tools/NHD_AttributeFiles/BEDPERM_ACC_CONUS.TXT")
 
 # Subset NLCD by our sites of interest
 nlcd_geo1 <- subset(nlcd_geo, nlcd_geo$COMID %in% dat$COMID) # the number of rows should be = to the number of rows in usgs_comid
@@ -855,8 +883,8 @@ nlcd_geo1 <- subset(nlcd_geo, nlcd_geo$COMID %in% dat$COMID) # the number of row
 
 # Change column names:
 names(nlcd_geo1)
-# colnames(nlcd_geo1)[2] <- "PerNotAquifer"
-# colnames(nlcd_geo1)[7] <- "PerSandGravel"
+colnames(nlcd_geo1)[2] <- "PerNotAquifer"
+colnames(nlcd_geo1)[7] <- "PerSandGravel"
 
 usgs_nlcd4 <- left_join(usgs_nlcd3, nlcd_geo1[c("COMID", "PerNotAquifer", "PerSandGravel")],
                         by = c('COMID'= 'COMID'))
